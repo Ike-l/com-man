@@ -12,8 +12,6 @@ struct App {
 #[serenity::async_trait]
 impl serenity::prelude::EventHandler for App {
     async fn message(&self, ctx: serenity::all::Context, msg: serenity::all::Message) {
-        // todo!("if message isnt comming from the bot");
-
         let command = Commands::try_from(msg.content.clone());
         match command {
             Ok(command) => {
