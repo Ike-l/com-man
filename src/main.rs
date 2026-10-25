@@ -1,5 +1,6 @@
 use serenity::{all::{Message, Ready}, async_trait, prelude::{Client, Context, EventHandler, GatewayIntents}};
 
+pub mod commands;
 
 struct App;
 
