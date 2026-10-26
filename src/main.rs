@@ -62,7 +62,7 @@ async fn main() {
     let app = App {
         command_center: CommandCenter {
             vote_duration: serenity::prelude::Mutex::new(Duration::from_secs(60)),
-            vote_threshold: AtomicU64::new(5),
+            vote_threshold: AtomicU64::new(1),
             reaction_emoji: serenity::all::ReactionType::Unicode("👍".to_string())
         }
     };
@@ -75,4 +75,42 @@ async fn main() {
     if let Err(err) = client.start().await {
         println!("Client Error: {err:?}");
     }
+}
+
+async fn get_user_id(
+    guild_id: &serenity::all::GuildId,
+    message: &str,
+    ctx: &serenity::all::Context
+) -> Option<serenity::all::UserId> {
+    let start = message.find('@')? + 1;
+    let end = message[start..].find(' ').unwrap_or(message.len() - 1) - 1;
+    
+    let starts =  message.find('<').is_some_and(|index| index + 2 == start);
+    let ends = message[start..].find('>').is_some_and(|index| start + index - 1 == end);
+
+    if starts && ends {
+        let id = &message[start..=end];
+        let id = id.parse::<u64>().ok()?;
+        let user_id = serenity::all::UserId::new(id);
+        let _ = user_id.direct_message(&ctx.http, serenity::all::CreateMessage::new().content("stupid ahh")).await;
+        return Some(user_id);
+    }
+
+    let user_name = &message[start..end + 1];
+    let members = guild_id.members(&ctx.http, None, None).await.ok()?;
+    for member in members {
+        let display = member.display_name();
+        let name = &member.user.name;
+        let nick = member.nick.as_deref().unwrap_or("");
+
+        if display.eq_ignore_ascii_case(user_name) || 
+            name.eq_ignore_ascii_case(user_name) || 
+            nick.eq_ignore_ascii_case(user_name) {
+            let user_id = member.user.id;
+            let _ = user_id.direct_message(&ctx.http, serenity::all::CreateMessage::new().content("stupid ahh")).await;
+            return Some(user_id);
+        }
+    }
+
+    None
 }
