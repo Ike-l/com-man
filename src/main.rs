@@ -79,8 +79,10 @@ async fn main() {
     let app = App {
         command_center: CommandCenter {
             vote_duration: serenity::prelude::Mutex::new(Duration::from_secs(60)),
-            vote_threshold: AtomicU64::new(1),
-            reaction_emoji: serenity::all::ReactionType::Unicode("👍".to_string())
+            accept_vote_threshold: AtomicU64::new(1),
+            deny_vote_threshold: AtomicU64::new(1),
+            accept_reaction_emoji: serenity::all::ReactionType::Unicode("👍".to_string()),
+            deny_reaction_emoji: serenity::all::ReactionType::Unicode("👎".to_string()),
         },
         app_span: span.clone(),
     };
