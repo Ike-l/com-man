@@ -31,7 +31,7 @@ impl Commands {
 
     pub fn list() -> String {
         format!(
-            "`note: Prefix all commands with {}`\n\
+            "`Note: Prefix all commands with {}`\n\
             * `ping`\n\
             * `list`\n\
             * set accept threshold `number` # Req: Admin \n\

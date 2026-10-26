@@ -28,7 +28,7 @@ impl SlashCommand {
 
     pub fn list() -> String {
         format!(
-            "`note: Prefix all commands with {}`\n\
+            "`Note: Prefix all commands with {}`\n\
             * dm `username` `message`\n\
             * kick `username`\n\
             * ban `username`\n\

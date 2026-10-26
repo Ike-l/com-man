@@ -94,7 +94,7 @@ impl CommandCenter {
         blocklist: Vec<serenity::all::UserId>,
     ) {
         let Some(vote_msg) = Self::echo(&msg.channel_id, &ctx.http, format!(
-            "Initiating vote to execute: `{message}`.\nReact with `{}` to `accept`.\nReact with `{}` to `deny`.\nNeeds {} more `accepts`.\nNeeds {} more `denies`.\nExpires in {}s.",
+            "`Note: Specified Users cannot vote`\nInitiating vote to execute: `{message}`.\nReact with `{}` to `accept`.\nReact with `{}` to `deny`.\nNeeds {} more `accepts`.\nNeeds {} more `denies`.\nExpires in {}s.",
             accept_reaction_emoji,
             deny_reaction_emoji,
             accept_threshold,
