@@ -1,6 +1,6 @@
 use std::{sync::atomic::{AtomicU64, Ordering}, time::Duration};
 
-use crate::{slash_commands::SlashCommand, commands::Commands};
+use crate::{commands::Commands, get_user_id, slash_commands::SlashCommand};
 use serenity::futures::StreamExt;
 use tracing::{Level, event, span};
 
@@ -25,8 +25,19 @@ impl CommandCenter {
                 let duration = self.vote_duration.lock().await.clone();
                 let accept_reaction_emoji = self.accept_reaction_emoji.clone();
                 let deny_reaction_emoji = self.deny_reaction_emoji.clone();
-                // fill blocklist with any user_ids mentioned in the command
-                let blocklist = vec![];
+                let blocklist = match &msg.guild_id {
+                    Some(guild_id) => {
+                        message.split_ascii_whitespace().into_iter().filter_map(|word| {
+                            if let Some(user_id) = get_user_id(guild_id, &word, &ctx).await {
+                                return Some(user_id);
+                            }
+        
+                            None
+                        }).collect::<Vec<_>>()
+                    },
+                    None => vec![]
+                };
+
                 Self::vote(
                     ctx, 
                     msg, 
