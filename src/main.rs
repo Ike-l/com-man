@@ -93,7 +93,6 @@ async fn get_user_id(
         let id = &message[start..=end];
         let id = id.parse::<u64>().ok()?;
         let user_id = serenity::all::UserId::new(id);
-        let _ = user_id.direct_message(&ctx.http, serenity::all::CreateMessage::new().content("stupid ahh")).await;
         return Some(user_id);
     }
 
@@ -108,7 +107,6 @@ async fn get_user_id(
             name.eq_ignore_ascii_case(user_name) || 
             nick.eq_ignore_ascii_case(user_name) {
             let user_id = member.user.id;
-            let _ = user_id.direct_message(&ctx.http, serenity::all::CreateMessage::new().content("stupid ahh")).await;
             return Some(user_id);
         }
     }
