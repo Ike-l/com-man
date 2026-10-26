@@ -7,7 +7,8 @@ pub enum Commands {
     List,
     Echo(String),
     SetDuration(Duration),
-    SetVoteThreshold(u64),
+    SetAcceptVoteThreshold(u64),
+    SetDenyVoteThreshold(u64),
 }
 
 impl Display for Commands {
@@ -17,7 +18,8 @@ impl Display for Commands {
             Commands::List => format!("list"),
             Commands::Echo(message) => format!("echo {message}"),
             Commands::SetDuration(duration) => format!("set duration {}s", duration.as_secs()),
-            Commands::SetVoteThreshold(threshold) => format!("set threshold {threshold}"),
+            Commands::SetAcceptVoteThreshold(threshold) => format!("set accept threshold {threshold}"),
+            Commands::SetDenyVoteThreshold(threshold) => format!("set deny threshold {threshold}"),
         };
 
         write!(f, "{command}")
@@ -32,7 +34,7 @@ impl Commands {
             "`note: Prefix all commands with {}`\n\
             * `ping`\n\
             * `list`\n\
-            * set threshold `number` # Req: Admin \n\
+            * set accept threshold `number` # Req: Admin \n\
             * set duration `number` (seconds) # Req: Admin \n\
             * echo `message`",
             Self::PREFIX
@@ -63,7 +65,8 @@ impl TryFrom<String> for Commands {
             ["list"] => Ok(Self::List),
             ["ping"] => Ok(Self::Ping),
             ["set", "duration", duration] => Ok(Self::SetDuration(Duration::from_secs(duration.parse().map_err(|_| CommandError::ParsingDuration)?))),
-            ["set", "threshold", threshold] => Ok(Self::SetVoteThreshold(threshold.parse().map_err(|_| CommandError::ParsingThreshold)?)),
+            ["set", "accept", "threshold", threshold] => Ok(Self::SetAcceptVoteThreshold(threshold.parse().map_err(|_| CommandError::ParsingThreshold)?)),
+            ["set", "deny", "threshold", threshold] => Ok(Self::SetDenyVoteThreshold(threshold.parse().map_err(|_| CommandError::ParsingThreshold)?)),
             ["echo", message @ ..] => {
                 let message = message.join(" ");
                 Ok(Self::Echo(message))

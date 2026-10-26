@@ -6,9 +6,11 @@ use tracing::{Level, event, span};
 
 
 pub struct CommandCenter {
-    pub vote_threshold: AtomicU64,
+    pub accept_vote_threshold: AtomicU64,
+    pub deny_vote_threshold: AtomicU64,
     pub vote_duration: serenity::prelude::Mutex<Duration>,
-    pub reaction_emoji: serenity::all::ReactionType,
+    pub accept_reaction_emoji: serenity::all::ReactionType,
+    pub deny_reaction_emoji: serenity::all::ReactionType,
 }
 
 impl CommandCenter {
@@ -18,10 +20,25 @@ impl CommandCenter {
                 Self::pong(&msg.channel_id, &ctx.http).await;
             },
             Commands::Echo(message) => {
-                let threshold = self.vote_threshold.load(Ordering::Relaxed) + 1;
+                let accept_threshold = self.accept_vote_threshold.load(Ordering::Relaxed);
+                let deny_threshold = self.deny_vote_threshold.load(Ordering::Relaxed);
                 let duration = self.vote_duration.lock().await.clone();
-                let reaction_emoji = self.reaction_emoji.clone();
-                Self::vote(ctx, msg, message, threshold, duration, reaction_emoji).await;
+                let accept_reaction_emoji = self.accept_reaction_emoji.clone();
+                let deny_reaction_emoji = self.deny_reaction_emoji.clone();
+                // fill blocklist with any user_ids mentioned in the command
+                let blocklist = vec![];
+                Self::vote(
+                    ctx, 
+                    msg, 
+                    message, 
+                    accept_threshold, 
+                    deny_threshold,
+                    duration, 
+                    accept_reaction_emoji,
+                    deny_reaction_emoji,
+                    blocklist,
+
+                ).await;
             },
             Commands::List => {
                 let message = Commands::list();
@@ -36,14 +53,22 @@ impl CommandCenter {
                     Self::echo(&msg.channel_id, ctx.http, "You need admin for this command").await;
                 }
             },
-            Commands::SetVoteThreshold(threshold) => {
+            Commands::SetAcceptVoteThreshold(threshold) => {
                 if is_admin {
-                    self.vote_threshold.store(threshold, Ordering::Relaxed);
-                    Self::echo(&msg.channel_id, ctx.http, format!("Successfully set threshold to {threshold}")).await;
+                    self.accept_vote_threshold.store(threshold, Ordering::Relaxed);
+                    Self::echo(&msg.channel_id, ctx.http, format!("Successfully set accept threshold to {threshold}")).await;
                 } else {
                     Self::echo(&msg.channel_id, ctx.http, "You need admin for this command").await;
                 }
-            }
+            },
+            Commands::SetDenyVoteThreshold(threshold) => {
+                if is_admin {
+                    self.deny_vote_threshold.store(threshold, Ordering::Relaxed);
+                    Self::echo(&msg.channel_id, ctx.http, format!("Successfully set deny threshold to {threshold}")).await;
+                } else {
+                    Self::echo(&msg.channel_id, ctx.http, "You need admin for this command").await;
+                }
+            },
         }
     }
 
@@ -51,47 +76,86 @@ impl CommandCenter {
         ctx: serenity::all::Context, 
         msg: serenity::all::Message,
         message: String,
-        threshold: u64,
+        accept_threshold: u64,
+        deny_threshold: u64,
         duration: Duration,
-        reaction_emoji: serenity::all::ReactionType,
+        accept_reaction_emoji: serenity::all::ReactionType,
+        deny_reaction_emoji: serenity::all::ReactionType,
+        blocklist: Vec<serenity::all::UserId>,
     ) {
         let Some(vote_msg) = Self::echo(&msg.channel_id, &ctx.http, format!(
-            "Initiating vote to execute: `{message}`! React with `{}` to execute (Needs {} more votes in {}s).",
-            reaction_emoji,
-            threshold - 1,
+            "Initiating vote to execute: `{message}`.\nReact with `{}` to `accept`.\nReact with `{}` to `deny`.\nNeeds {} more `accepts`.\nNeeds {} more `denies`.\nExpires in {}s.",
+            accept_reaction_emoji,
+            deny_reaction_emoji,
+            accept_threshold,
+            deny_threshold,
             duration.as_secs()
         )).await else { return };
-
-        let react_result = vote_msg.react(&ctx.http, reaction_emoji.clone()).await;
+        
+        let react_result = vote_msg.react(&ctx.http, accept_reaction_emoji.clone()).await;
         if let Err(_) = react_result {
-            let _ = Self::echo(&msg.channel_id, &ctx.http, "Failed to react to my message");
+            let _ = Self::echo(&msg.channel_id, &ctx.http, "Failed to react `accept` to my message");
         }
+        let accept_threshold = accept_threshold + 1;
+
+        let react_result = vote_msg.react(&ctx.http, deny_reaction_emoji.clone()).await;
+        if let Err(_) = react_result {
+            let _ = Self::echo(&msg.channel_id, &ctx.http, "Failed to react `deny` to my message");
+        }
+        let deny_threshold = deny_threshold + 1;
 
         let collector = vote_msg
             .await_reactions(&ctx.shard)
             .timeout(duration)
-            .filter(move |reaction| reaction.emoji == reaction_emoji);
+            .filter({
+                let accept_reaction_emoji = accept_reaction_emoji.clone();
+                let deny_reaction_emoji = deny_reaction_emoji.clone();
+                move |reaction| reaction.emoji == accept_reaction_emoji || reaction.emoji == deny_reaction_emoji
+            });
 
         let mut reaction_stream = collector.stream();
-        let mut current_votes: u64 = 0;
+        let mut current_accepts: u64 = 0;
+        let mut current_denies: u64 = 0;
 
         while let Some(reaction) = reaction_stream.next().await {
-            if let Ok(updated_msg) = vote_msg.channel_id.message(&ctx.http, vote_msg.id).await {
-                if let Some(reaction_count) = updated_msg
-                    .reactions
-                    .iter()
-                    .find(|r| r.reaction_type == reaction.emoji)
+            if reaction.emoji == accept_reaction_emoji {
+                if let Ok(users) = vote_msg
+                    .channel_id
+                    .reaction_users(&ctx.http, vote_msg.id, reaction.emoji.clone(), None, None)
+                    .await
                 {
-                    current_votes = reaction_count.count;
-                    if current_votes >= threshold {
-                        break;
-                    }
+                    current_accepts = users
+                        .iter()
+                        .filter(|u| !blocklist.contains(&u.id))
+                        .count() as u64;
                 }
+            }
+
+            if reaction.emoji == deny_reaction_emoji {
+                if let Ok(users) = vote_msg
+                    .channel_id
+                    .reaction_users(&ctx.http, vote_msg.id, reaction.emoji.clone(), None, None)
+                    .await
+                {
+                    current_denies = users
+                        .iter()
+                        .filter(|u| !blocklist.contains(&u.id))
+                        .count() as u64;
+                }
+            }
+
+            if current_denies >= deny_threshold {
+                break;
             }
         }
 
-        if current_votes >= threshold {
-            Self::echo(&msg.channel_id, &ctx.http, format!("Vote passed! Executing `{message}`")).await;
+        if current_denies >= deny_threshold {
+            Self::echo(&msg.channel_id, &ctx.http, format!("Vote denied for: `{message}`")).await;
+            return;
+        }
+
+        if current_accepts >= accept_threshold {
+            Self::echo(&msg.channel_id, &ctx.http, format!("Vote accepted. Executing: `{message}`")).await;
             
             let trimmed = message.trim();
             if trimmed.starts_with('/') {
