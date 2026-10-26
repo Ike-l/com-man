@@ -25,17 +25,16 @@ impl CommandCenter {
                 let duration = self.vote_duration.lock().await.clone();
                 let accept_reaction_emoji = self.accept_reaction_emoji.clone();
                 let deny_reaction_emoji = self.deny_reaction_emoji.clone();
-                let blocklist = match &msg.guild_id {
-                    Some(guild_id) => {
-                        message.split_ascii_whitespace().into_iter().filter_map(|word| {
-                            if let Some(user_id) = get_user_id(guild_id, &word, &ctx).await {
-                                return Some(user_id);
-                            }
-        
-                            None
-                        }).collect::<Vec<_>>()
-                    },
-                    None => vec![]
+                let blocklist = if let Some(guild_id) = &msg.guild_id {
+                    let mut blocklist = Vec::new();
+                    for word in message.split_ascii_whitespace() {
+                        if let Some(user_id) = get_user_id(guild_id, word, &ctx).await {
+                            blocklist.push(user_id);
+                        }
+                    }
+                    blocklist
+                } else {
+                    vec![]
                 };
 
                 Self::vote(
