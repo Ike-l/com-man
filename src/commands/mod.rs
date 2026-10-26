@@ -1,5 +1,7 @@
 use std::{fmt::Display, time::Duration};
 
+use thiserror::Error;
+
 pub enum Commands {
     Ping,
     List,
@@ -30,19 +32,23 @@ impl Commands {
             "`note: Prefix all commands with {}`\n\
             * ping\n\
             * list\n\
-            * set threshold `number` # Req: Admin,
-            * set duration `number` (seconds) # Req: Admin,
+            * set threshold `number` # Req: Admin \n\
+            * set duration `number` (seconds) # Req: Admin \n\
             * echo `message`",
             Self::PREFIX
         )
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum CommandError {
+    #[error("No Prefix Found. Expected: {}", Commands::PREFIX)]
     NoPrefix,
+    #[error("Command Not Found. Expected One of: {}", Commands::list())]
     NotFound,
+    #[error("Failed to parse Threshold value. Expected valid u64")]
     ParsingThreshold,
+    #[error("Failed to parse Duration value. Expected valid u64 in seconds")]
     ParsingDuration,
 }
 

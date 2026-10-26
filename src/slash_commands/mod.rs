@@ -1,24 +1,43 @@
+use thiserror::Error;
+
 use crate::get_user_id;
 
 pub enum SlashCommand {
+    DM((serenity::all::UserId, String)),
     Kick(serenity::all::UserId),
     Ban(serenity::all::UserId),
     BanWithReason((serenity::all::UserId, String)),
     Disconnect(serenity::all::UserId),
     Timeout((serenity::all::UserId, serenity::all::Timestamp)),
-    DM((serenity::all::UserId, String))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SlashCommandError {
-    NotFound,
+    #[error("No Prefix Found. Expected: {}", SlashCommand::PREFIX)]
     NoPrefix,
+    #[error("Command Not Found. Expected One of: {}", SlashCommand::list())]
+    NotFound,
+    #[error("Failed to parse Threshold value. Expected valid u64")]
     UserId,
+    #[error("Failed to parse Duration value. Expected valid u64 in seconds")]
     ParsingDuration,
 }
 
 impl SlashCommand {
     pub const PREFIX: &'static str = "/";
+
+    pub fn list() -> String {
+        format!(
+            "`note: Prefix all commands with {}`\n\
+            * dm `username` `message`\n\
+            * kick `username`\n\
+            * ban `username`\n\
+            * ban `username` `reason` \n\
+            * disconnect `username`\n\
+            * timeout `username` `duration`",
+            Self::PREFIX
+        )
+    }
 
     pub async fn try_from(
         value: &str,

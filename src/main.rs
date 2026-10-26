@@ -1,8 +1,9 @@
 use std::{sync::atomic::AtomicU64, time::Duration};
 
+use tracing::{Level, event, span};
 use tracing_subscriber::fmt;
 
-use crate::{command_center::CommandCenter, commands::{CommandError, Commands}};
+use crate::{command_center::CommandCenter, commands::Commands};
 
 pub mod commands;
 pub mod slash_commands;
@@ -48,14 +49,19 @@ impl serenity::prelude::EventHandler for App {
     }
 
     async fn ready(&self, _ctx: serenity::all::Context, ready: serenity::all::Ready) {
-        println!("{} Connected", ready.user.name);
+        event!(Level::INFO, user_name = ready.user.name, "Connected");
     }
 }
 
 
 #[tokio::main]
 async fn main() {
-    fmt().init();
+    fmt()
+        .with_max_level(Level::TRACE)
+        .init();
+
+    let span = span!(Level::INFO, "App");
+    let _enter = span.enter();
 
     dotenv::dotenv().ok();    
     let token = std::env::var("DISCORD_TOKEN").expect(".env file in crate directory with 'DISCORD_TOKEN=_'");
@@ -76,7 +82,7 @@ async fn main() {
     ).event_handler(app).await.expect("Error with building the client");
 
     if let Err(err) = client.start().await {
-        println!("Client Error: {err:?}");
+        event!(Level::ERROR, error = ?err, "Client Error");
     }
 }
 

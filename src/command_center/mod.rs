@@ -2,6 +2,7 @@ use std::{sync::atomic::{AtomicU64, Ordering}, time::Duration};
 
 use crate::{slash_commands::SlashCommand, commands::Commands};
 use serenity::futures::StreamExt;
+use tracing::{Level, event, span};
 
 
 pub struct CommandCenter {
@@ -169,13 +170,17 @@ impl CommandCenter {
 
     pub async fn echo(channel_id: &serenity::all::ChannelId, cache_http: impl serenity::http::CacheHttp, message: impl Into<String>) -> Option<serenity::all::Message> {
         let message = message.into();
-        println!("Echoing message: {message}");
+        let span = span!(Level::TRACE, "Echo", message = message);
+        let _enter = span.enter();
+
+        event!(Level::TRACE, "Echoing");
+
         let result = channel_id.say(&cache_http, message.clone()).await;
         
         match result {
             Ok(message) => return Some(message),
             Err(err) => {
-                println!("Error Sending Message: {message}. With: {err:?}");
+                event!(Level::ERROR, error = ?err, "Error Sending Message");
                 return None
             }
         }
