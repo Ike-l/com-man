@@ -1,5 +1,7 @@
 use std::{sync::atomic::AtomicU64, time::Duration};
 
+use tracing_subscriber::fmt;
+
 use crate::{command_center::CommandCenter, commands::{CommandError, Commands}};
 
 pub mod commands;
@@ -53,8 +55,9 @@ impl serenity::prelude::EventHandler for App {
 
 #[tokio::main]
 async fn main() {
-    dotenv::dotenv().ok();
+    fmt().init();
 
+    dotenv::dotenv().ok();    
     let token = std::env::var("DISCORD_TOKEN").expect(".env file in crate directory with 'DISCORD_TOKEN=_'");
 
     let intents = serenity::prelude::GatewayIntents::all();
