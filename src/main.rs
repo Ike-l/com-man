@@ -23,6 +23,9 @@ impl serenity::prelude::EventHandler for App {
             return;
         }
 
+        let span = span!(Level::TRACE, "Origin", author = msg.author.display_name());
+        let _enter = span.enter();
+
         let command = Commands::try_from(msg.content.clone());
         match command {
             Ok(command) => {
