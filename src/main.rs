@@ -13,6 +13,10 @@ struct App {
 #[serenity::async_trait]
 impl serenity::prelude::EventHandler for App {
     async fn message(&self, ctx: serenity::all::Context, msg: serenity::all::Message) {
+        if msg.author.id == ctx.cache.current_user().id {
+            return;
+        }
+
         let command = Commands::try_from(msg.content.clone());
         match command {
             Ok(command) => {
