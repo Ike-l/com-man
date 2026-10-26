@@ -1,7 +1,7 @@
 use std::{sync::atomic::{AtomicU64, Ordering}, time::Duration};
 
 use crate::{slash_commands::SlashCommand, commands::Commands};
-use serenity::{futures::StreamExt, prelude::CacheHttp};
+use serenity::futures::StreamExt;
 
 
 pub struct CommandCenter {
@@ -120,25 +120,40 @@ impl CommandCenter {
 
     async fn execute_slash_command(ctx: &serenity::all::Context, msg: &serenity::all::Message, message: &str) {
         let Some(guild_id) = msg.guild_id else { return };
-        let Ok(slash_command) = SlashCommand::try_from(
+        let result = SlashCommand::try_from(
             message,
             &guild_id,
             ctx
-        ).await else { return };
+        ).await;
+
+        let Ok(slash_command) = result else {
+            let Err(err) = result else { unreachable!() };
+            println!("Error getting slash command from {message} with: {err:?}");
+            return;
+        };
 
         match slash_command {
+            SlashCommand::DM((user_id, reason)) => {
+                let err = user_id.dm(&ctx.http, serenity::all::CreateMessage::new().content(reason)).await;
+                if let Err(err) = err {
+                    println!("Error DMing: {err}");
+                }
+            },
             SlashCommand::Kick(user_id) => {
-                let _ = guild_id.kick(ctx.http(), user_id).await;
+                let _ = guild_id.kick(&ctx.http, user_id).await;
             },
             SlashCommand::Ban(user_id) => {
-                let _ = guild_id.ban(ctx.http(), user_id, 0).await;
+                let _ = guild_id.ban(&ctx.http, user_id, 0).await;
             },
+            SlashCommand::BanWithReason((user_id, reason)) => {
+                let _ = guild_id.ban_with_reason(&ctx.http, user_id, 0, reason).await;
+            }
             SlashCommand::Disconnect(user_id) => {
-                let _ = guild_id.disconnect_member(ctx.http(), user_id).await;
+                let _ = guild_id.disconnect_member(&ctx.http, user_id).await;
             },
             SlashCommand::Timeout((user_id, timestamp)) => {
-                let Ok(mut member) = guild_id.member(ctx.http(), user_id).await else { return };
-                let _ = member.disable_communication_until_datetime(ctx.http(), timestamp).await;
+                let Ok(mut member) = guild_id.member(&ctx.http, user_id).await else { return };
+                let _ = member.disable_communication_until_datetime(&ctx.http, timestamp).await;
             }
         }
     }
