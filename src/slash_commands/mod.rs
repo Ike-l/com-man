@@ -15,7 +15,7 @@ pub enum SlashCommand {
 pub enum SlashCommandError {
     #[error("No Prefix Found. Expected: {}", SlashCommand::PREFIX)]
     NoPrefix,
-    #[error("Command Not Found. Expected One of: {}", SlashCommand::list())]
+    #[error("Command Not Found. Expected one of: \n{}", SlashCommand::list())]
     NotFound,
     #[error("Failed to parse Threshold value. Expected valid u64")]
     UserId,

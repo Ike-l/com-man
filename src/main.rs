@@ -1,7 +1,7 @@
 use std::{sync::atomic::AtomicU64, time::Duration};
 
 use tracing::{Level, event, span};
-use tracing_subscriber::fmt;
+use tracing_subscriber::{fmt, EnvFilter};
 
 use crate::{command_center::CommandCenter, commands::Commands};
 
@@ -10,12 +10,15 @@ pub mod slash_commands;
 pub mod command_center;
 
 struct App {
-    command_center: CommandCenter
+    command_center: CommandCenter,
+    app_span: tracing::Span,
 }
 
 #[serenity::async_trait]
 impl serenity::prelude::EventHandler for App {
     async fn message(&self, ctx: serenity::all::Context, msg: serenity::all::Message) {
+        let _enter = self.app_span.enter();
+
         if msg.author.id == ctx.cache.current_user().id {
             return;
         }
@@ -43,13 +46,15 @@ impl serenity::prelude::EventHandler for App {
                 self.command_center.execute(command, is_admin, ctx, msg).await;
             },
             Err(err) => {
-                CommandCenter::echo(&msg.channel_id, &ctx.http, format!("Error in command: {err:?}")).await;
+                CommandCenter::echo(&msg.channel_id, &ctx.http, format!("Error in command: {err}")).await;
             }
         }
     }
 
     async fn ready(&self, _ctx: serenity::all::Context, ready: serenity::all::Ready) {
-        event!(Level::INFO, user_name = ready.user.name, "Connected");
+        self.app_span.record("user_name", tracing::field::display(&ready.user.name));
+        let _enter = self.app_span.enter();
+        event!(Level::INFO, "Connected");
     }
 }
 
@@ -57,10 +62,10 @@ impl serenity::prelude::EventHandler for App {
 #[tokio::main]
 async fn main() {
     fmt()
-        .with_max_level(Level::TRACE)
+        .with_env_filter(EnvFilter::new("com_man=trace"))
         .init();
 
-    let span = span!(Level::INFO, "App");
+    let span = span!(Level::INFO, "App", user_name = tracing::field::Empty);
     let _enter = span.enter();
 
     dotenv::dotenv().ok();    
@@ -73,7 +78,8 @@ async fn main() {
             vote_duration: serenity::prelude::Mutex::new(Duration::from_secs(60)),
             vote_threshold: AtomicU64::new(1),
             reaction_emoji: serenity::all::ReactionType::Unicode("👍".to_string())
-        }
+        },
+        app_span: span.clone(),
     };
 
     let mut client = serenity::prelude::Client::builder(

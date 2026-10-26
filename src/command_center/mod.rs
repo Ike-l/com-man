@@ -2,7 +2,7 @@ use std::{sync::atomic::{AtomicU64, Ordering}, time::Duration};
 
 use crate::{slash_commands::SlashCommand, commands::Commands};
 use serenity::futures::StreamExt;
-use tracing::{Level, event, span};
+use tracing::{Level, Span, event, span};
 
 
 pub struct CommandCenter {
@@ -118,7 +118,7 @@ impl CommandCenter {
         let slash_command = match result {
             Ok(slash_command) => slash_command,
             Err(err) => {
-                Self::echo(&msg.channel_id, &ctx.http, format!("Failed to derive slash command with error: {err:?}")).await;
+                Self::echo(&msg.channel_id, &ctx.http, format!("Failed to derive slash command with error: {err}")).await;
                 return;
             },
         };
@@ -170,7 +170,7 @@ impl CommandCenter {
 
     pub async fn echo(channel_id: &serenity::all::ChannelId, cache_http: impl serenity::http::CacheHttp, message: impl Into<String>) -> Option<serenity::all::Message> {
         let message = message.into();
-        let span = span!(Level::TRACE, "Echo", message = message);
+        let span = span!(parent: Span::current(), Level::TRACE, "Echo", message = message.clone());
         let _enter = span.enter();
 
         event!(Level::TRACE, "Echoing");

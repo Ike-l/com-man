@@ -30,8 +30,8 @@ impl Commands {
     pub fn list() -> String {
         format!(
             "`note: Prefix all commands with {}`\n\
-            * ping\n\
-            * list\n\
+            * `ping`\n\
+            * `list`\n\
             * set threshold `number` # Req: Admin \n\
             * set duration `number` (seconds) # Req: Admin \n\
             * echo `message`",
@@ -44,7 +44,7 @@ impl Commands {
 pub enum CommandError {
     #[error("No Prefix Found. Expected: {}", Commands::PREFIX)]
     NoPrefix,
-    #[error("Command Not Found. Expected One of: {}", Commands::list())]
+    #[error("Command Not Found. Expected one of: \n{}", Commands::list())]
     NotFound,
     #[error("Failed to parse Threshold value. Expected valid u64")]
     ParsingThreshold,
