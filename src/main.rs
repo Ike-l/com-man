@@ -3,6 +3,7 @@ use std::{sync::atomic::AtomicU64, time::Duration};
 use crate::{command_center::CommandCenter, commands::{CommandError, Commands}};
 
 pub mod commands;
+pub mod slash_commands;
 pub mod command_center;
 
 struct App {

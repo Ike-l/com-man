@@ -1,8 +1,6 @@
 use std::{sync::atomic::{AtomicU64, Ordering}, time::Duration};
 
-pub mod slash_commands;
-
-use crate::{command_center::slash_commands::SlashCommand, commands::Commands};
+use crate::{slash_commands::SlashCommand, commands::Commands};
 use serenity::{futures::StreamExt, prelude::CacheHttp};
 
 
