@@ -20,16 +20,7 @@ impl CommandCenter {
                 let threshold = self.vote_threshold.load(Ordering::Relaxed) + 1;
                 let duration = self.vote_duration.lock().await.clone();
                 let reaction_emoji = self.reaction_emoji.clone();
-                if let Err(err) = Self::vote(
-                    ctx, 
-                    msg, 
-                    message,
-                    threshold,
-                    duration,
-                    reaction_emoji
-                ).await {
-                    println!("Error Sending Message: {err:?}");
-                }
+                Self::vote(ctx, msg, message, threshold, duration, reaction_emoji).await;
             },
             Commands::List => {
                 let message = Commands::list();
@@ -62,18 +53,18 @@ impl CommandCenter {
         threshold: u64,
         duration: Duration,
         reaction_emoji: serenity::all::ReactionType,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let vote_msg = msg.channel_id.say(
-            &ctx.http,
-            format!(
-                "Initiating vote to execute: `{message}`! React with `{}` to execute (Needs {} more votes in {}s).",
-                reaction_emoji,
-                threshold - 1,
-                duration.as_secs()
-            ),
-        ).await?;
+    ) {
+        let Some(vote_msg) = Self::echo(&msg.channel_id, &ctx.http, format!(
+            "Initiating vote to execute: `{message}`! React with `{}` to execute (Needs {} more votes in {}s).",
+            reaction_emoji,
+            threshold - 1,
+            duration.as_secs()
+        )).await else { return };
 
-        vote_msg.react(&ctx.http, reaction_emoji.clone()).await?;
+        let react_result = vote_msg.react(&ctx.http, reaction_emoji.clone()).await;
+        if let Err(_) = react_result {
+            let _ = Self::echo(&msg.channel_id, &ctx.http, "Failed to react to my message");
+        }
 
         let collector = vote_msg
             .await_reactions(&ctx.shard)
@@ -99,9 +90,7 @@ impl CommandCenter {
         }
 
         if current_votes >= threshold {
-            msg.channel_id
-                .say(&ctx.http, format!("Vote passed! Executing `{message}`"))
-                .await?;
+            Self::echo(&msg.channel_id, &ctx.http, format!("Vote passed! Executing `{message}`")).await;
             
             let trimmed = message.trim();
             if trimmed.starts_with('/') {
@@ -110,50 +99,66 @@ impl CommandCenter {
                 Self::echo(&msg.channel_id, &ctx.http, message).await;
             }
         } else {
-            msg.channel_id
-                .say(&ctx.http, format!("Vote failed for `{message}`. Not enough votes in {}s", duration.as_secs()))
-                .await?;
+            Self::echo(&msg.channel_id, &ctx.http, format!("Vote failed for `{message}`. Not enough votes in {}s", duration.as_secs())).await;
         }
-
-        Ok(())
     }
 
     async fn execute_slash_command(ctx: &serenity::all::Context, msg: &serenity::all::Message, message: &str) {
-        let Some(guild_id) = msg.guild_id else { return };
+        let Some(guild_id) = msg.guild_id else { 
+            Self::echo(&msg.channel_id, &ctx.http, "Failed to get guild id").await;
+            return 
+        };
         let result = SlashCommand::try_from(
             message,
             &guild_id,
             ctx
         ).await;
 
-        let Ok(slash_command) = result else {
-            let Err(err) = result else { unreachable!() };
-            println!("Error getting slash command from {message} with: {err:?}");
-            return;
+        let slash_command = match result {
+            Ok(slash_command) => slash_command,
+            Err(err) => {
+                Self::echo(&msg.channel_id, &ctx.http, format!("Failed to derive slash command with error: {err:?}")).await;
+                return;
+            },
         };
 
         match slash_command {
             SlashCommand::DM((user_id, reason)) => {
                 let err = user_id.dm(&ctx.http, serenity::all::CreateMessage::new().content(reason)).await;
                 if let Err(err) = err {
-                    println!("Error DMing: {err}");
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to DM with error: {err:?}")).await;
                 }
             },
             SlashCommand::Kick(user_id) => {
-                let _ = guild_id.kick(&ctx.http, user_id).await;
+                let err = guild_id.kick(&ctx.http, user_id).await;
+                if let Err(err) = err {
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Kick with error: {err:?}")).await;
+                }
             },
             SlashCommand::Ban(user_id) => {
-                let _ = guild_id.ban(&ctx.http, user_id, 0).await;
+                let err = guild_id.ban(&ctx.http, user_id, 0).await;
+                if let Err(err) = err {
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Ban with error: {err:?}")).await;
+                }
             },
             SlashCommand::BanWithReason((user_id, reason)) => {
-                let _ = guild_id.ban_with_reason(&ctx.http, user_id, 0, reason).await;
+                let err = guild_id.ban_with_reason(&ctx.http, user_id, 0, reason).await;
+                if let Err(err) = err {
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Ban with error: {err:?}")).await;
+                }
             }
             SlashCommand::Disconnect(user_id) => {
-                let _ = guild_id.disconnect_member(&ctx.http, user_id).await;
+                let err = guild_id.disconnect_member(&ctx.http, user_id).await;
+                if let Err(err) = err {
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Disconnect with error: {err:?}")).await;
+                }
             },
             SlashCommand::Timeout((user_id, timestamp)) => {
                 let Ok(mut member) = guild_id.member(&ctx.http, user_id).await else { return };
-                let _ = member.disable_communication_until_datetime(&ctx.http, timestamp).await;
+                let err = member.disable_communication_until_datetime(&ctx.http, timestamp).await;
+                if let Err(err) = err {
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Timeout with error: {err:?}")).await;
+                }
             }
         }
     }
@@ -162,9 +167,17 @@ impl CommandCenter {
         Self::echo(channel_id, cache_http, "Pong!").await;
     }
 
-    async fn echo(channel_id: &serenity::all::ChannelId, cache_http: impl serenity::http::CacheHttp, message: impl Into<String>) {
-        if let Err(err) = channel_id.say(&cache_http, message).await {
-            println!("Error Sending Message: {err:?}");
+    pub async fn echo(channel_id: &serenity::all::ChannelId, cache_http: impl serenity::http::CacheHttp, message: impl Into<String>) -> Option<serenity::all::Message> {
+        let message = message.into();
+        println!("Echoing message: {message}");
+        let result = channel_id.say(&cache_http, message.clone()).await;
+        
+        match result {
+            Ok(message) => return Some(message),
+            Err(err) => {
+                println!("Error Sending Message: {message}. With: {err:?}");
+                return None
+            }
         }
     }
 }

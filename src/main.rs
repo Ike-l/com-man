@@ -40,18 +40,13 @@ impl serenity::prelude::EventHandler for App {
                 self.command_center.execute(command, is_admin, ctx, msg).await;
             },
             Err(err) => {
-                match err {
-                    CommandError::NoPrefix => println!("Command has no Prefix"),
-                    CommandError::NotFound => println!("Command Not Found"),
-                    CommandError::ParsingDuration => println!("Failed to parse given duration"),
-                    CommandError::ParsingThreshold => println!("Failed to parse given threshold"),
-                }
+                CommandCenter::echo(&msg.channel_id, &ctx.http, format!("Error in command: {err:?}")).await;
             }
         }
     }
 
-    async fn ready(&self, _: serenity::all::Context, ready: serenity::all::Ready) {
-        println!("{} is connected!", ready.user.name);
+    async fn ready(&self, _ctx: serenity::all::Context, ready: serenity::all::Ready) {
+        println!("{} Connected", ready.user.name);
     }
 }
 
