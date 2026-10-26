@@ -6,7 +6,8 @@ use serenity::futures::StreamExt;
 
 pub struct CommandCenter {
     pub vote_threshold: AtomicU64,
-    pub vote_duration: serenity::prelude::Mutex<Duration>
+    pub vote_duration: serenity::prelude::Mutex<Duration>,
+    pub reaction_emoji: serenity::all::ReactionType,
 }
 
 impl CommandCenter {
@@ -18,12 +19,14 @@ impl CommandCenter {
             Commands::Echo(message) => {
                 let threshold = self.vote_threshold.load(Ordering::Relaxed) + 1;
                 let duration = self.vote_duration.lock().await.clone();
+                let reaction_emoji = self.reaction_emoji.clone();
                 if let Err(err) = Self::vote(
                     ctx, 
                     msg, 
                     message,
                     threshold,
-                    duration
+                    duration,
+                    reaction_emoji
                 ).await {
                     println!("Error Sending Message: {err:?}");
                 }
@@ -58,25 +61,25 @@ impl CommandCenter {
         message: String,
         threshold: u64,
         duration: Duration,
+        reaction_emoji: serenity::all::ReactionType,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let emoji = serenity::all::ReactionType::Unicode("👍".to_string());
 
         let vote_msg = msg.channel_id.say(
             &ctx.http,
             format!(
                 "Initiating vote to execute: `{message}`! React with `{}` to execute (Needs {} more votes in {}s).",
-                emoji,
+                reaction_emoji,
                 threshold - 1,
                 duration.as_secs()
             ),
         ).await?;
 
-        vote_msg.react(&ctx.http, emoji.clone()).await?;
+        vote_msg.react(&ctx.http, reaction_emoji.clone()).await?;
 
         let collector = vote_msg
             .await_reactions(&ctx.shard)
             .timeout(duration)
-            .filter(move |reaction| reaction.emoji == emoji);
+            .filter(move |reaction| reaction.emoji == reaction_emoji);
 
         let mut reaction_stream = collector.stream();
         let mut current_votes: u64 = 0;

@@ -63,6 +63,7 @@ async fn main() {
         command_center: CommandCenter {
             vote_duration: serenity::prelude::Mutex::new(Duration::from_secs(60)),
             vote_threshold: AtomicU64::new(5),
+            reaction_emoji: serenity::all::ReactionType::Unicode("👍".to_string())
         }
     };
 
