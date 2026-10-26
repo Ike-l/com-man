@@ -38,6 +38,7 @@ impl Commands {
     }
 }
 
+#[derive(Debug)]
 pub enum CommandError {
     NoPrefix,
     NotFound,
