@@ -76,3 +76,92 @@ impl TryFrom<String> for Commands {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+    use tracing_subscriber::{fmt, EnvFilter};
+
+    fn init_test_logging() {
+        let _ = fmt()
+            .with_env_filter(EnvFilter::new(
+                std::env::var("TEST_LOG_LEVEL").unwrap_or_else(|_| "trace".to_string())
+            ))
+            .with_test_writer()
+            .try_init();
+    }
+
+    #[test]
+    fn parse_ping() {
+        init_test_logging();
+        let cmd = Commands::try_from("!ping     ".to_string()).unwrap();
+        matches!(cmd, Commands::Ping);
+    }
+
+    #[test]
+    fn parse_list() {
+        let cmd = Commands::try_from("!list        ".to_string()).unwrap();
+        matches!(cmd, Commands::List);
+    }
+
+    #[test]
+    fn parse_echo() {
+        let cmd = Commands::try_from("!echo       hello      world       ".to_string()).unwrap();
+        match cmd {
+            Commands::Echo(s) => assert_eq!(s, "hello world"),
+            _ => panic!("wrong command"),
+        }
+    }
+
+    #[test]
+    fn parse_set_duration() {
+        let cmd = Commands::try_from("!set      duration         30        ".to_string()).unwrap();
+        match cmd {
+            Commands::SetDuration(d) => assert_eq!(d, Duration::from_secs(30)),
+            _ => panic!("wrong command"),
+        }
+    }
+
+    #[test]
+    fn parse_set_accept_threshold() {
+        let cmd = Commands::try_from("!set     accept      threshold      5          ".to_string()).unwrap();
+        match cmd {
+            Commands::SetAcceptVoteThreshold(t) => assert_eq!(t, 5),
+            _ => panic!("wrong command"),
+        }
+    }
+
+    #[test]
+    fn parse_set_deny_threshold() {
+        let cmd = Commands::try_from("!set     deny       threshold     2      ".to_string()).unwrap();
+        match cmd {
+            Commands::SetDenyVoteThreshold(t) => assert_eq!(t, 2),
+            _ => panic!("wrong command"),
+        }
+    }
+
+    #[test]
+    fn missing_prefix() {
+        let err = Commands::try_from("ping    ".to_string()).unwrap_err();
+        matches!(err, CommandError::NoPrefix);
+    }
+
+    #[test]
+    fn unknown_command() {
+        let err = Commands::try_from("!unknown    ".to_string()).unwrap_err();
+        matches!(err, CommandError::NotFound);
+    }
+
+    #[test]
+    fn empty() {
+        let err = Commands::try_from("".to_string()).unwrap_err();
+        matches!(err, CommandError::NoPrefix);
+    }
+
+    #[test]
+    fn spaced() {
+        let err = Commands::try_from(" ".to_string()).unwrap_err();
+        matches!(err, CommandError::NoPrefix);
+    }
+}

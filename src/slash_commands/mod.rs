@@ -83,3 +83,18 @@ impl SlashCommand {
     }
 }
 
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use tracing_subscriber::{fmt, EnvFilter};
+
+//     fn init_test_logging() {
+//         let _ = fmt()
+//             .with_env_filter(EnvFilter::new(
+//                 std::env::var("TEST_LOG_LEVEL").unwrap_or_else(|_| "trace".to_string())
+//             ))
+//             .with_test_writer()
+//             .try_init();
+//     }
+// }
+
