@@ -10,6 +10,7 @@ pub enum SlashCommand {
     BanWithReason((serenity::all::UserId, String)),
     Disconnect(serenity::all::UserId),
     Timeout((serenity::all::UserId, serenity::all::Timestamp)),
+    Mute(serenity::all::UserId),
 }
 
 #[derive(Debug, Error)]
@@ -29,13 +30,16 @@ impl SlashCommand {
 
     pub fn list() -> String {
         format!(
-            "`Note: Prefix all commands with {}`\n\
+            "
+            `Note: Prefix all commands with {}`\n\
             * dm `username` `message`\n\
             * kick `username`\n\
             * ban `username`\n\
             * ban `username` `reason` \n\
             * disconnect `username`\n\
-            * timeout `username` `duration`",
+            * timeout `username` `duration`\n\
+            * mute `username`\n\
+            ",
             Self::PREFIX
         )
     }
@@ -71,13 +75,17 @@ impl SlashCommand {
                 Ok(Self::Disconnect(user_id))
             },
             ["timeout", username, duration] => {
-                // parse last character as 's' 'm' 'h' 'd'
+                // todo parse last character as 's' 'm' 'h' 'd'
                 let duration = duration.parse::<u64>().map_err(|_| SlashCommandError::ParsingDuration)?;
                 let user_id = get_user_id(guild_id, *username, ctx).await.ok_or(SlashCommandError::UserId)?;
                 let now = serenity::all::Timestamp::now();
                 let duration = now.checked_add_signed(chrono::TimeDelta::seconds(duration.try_into().unwrap())).unwrap();
                 Ok(Self::Timeout((user_id, duration.into())))
             },
+            ["mute", username] => {
+                let user_id = get_user_id(guild_id, *username, ctx).await.ok_or(SlashCommandError::UserId)?;
+                Ok(Self::Mute(user_id))
+            }
             _ => Err(SlashCommandError::NotFound)
         }
     }

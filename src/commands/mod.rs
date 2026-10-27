@@ -32,12 +32,14 @@ impl Commands {
 
     pub fn list() -> String {
         format!(
-            "`Note: Prefix all commands with {}`\n\
+            "
+            `Note: Prefix all commands with {}`\n\
             * `ping`\n\
             * `list`\n\
             * set accept threshold `number` # Req: Admin \n\
             * set duration `number` (seconds) # Req: Admin \n\
-            * echo `message`",
+            * echo `message`
+            ",
             Self::PREFIX
         )
     }
