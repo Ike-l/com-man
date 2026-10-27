@@ -260,7 +260,20 @@ impl CommandCenter {
                 if let Err(err) = err {
                     Self::echo(&msg.channel_id, &ctx.http, format!("Failed to `Timeout` with error: {err:?}")).await;
                 }
-            }
+            },
+            SlashCommand::Mute(user_id) => {
+                let Ok(member) = guild_id.member(&ctx.http, user_id).await else {
+                    Self::echo(&msg.channel_id, &ctx.http, "Failed to get `Member` with `UserId`").await;
+                    return;
+                };
+
+                let muted = member.mute;
+
+                let err = guild_id.edit_member(&ctx.http, user_id, serenity::all::EditMember::new().mute(!muted)).await;
+                if let Err(err) = err {
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Mute with error: {err:?}")).await;
+                }
+            },
         }
     }
 
