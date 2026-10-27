@@ -23,9 +23,6 @@ impl serenity::prelude::EventHandler for App {
             return;
         }
 
-        let span = span!(Level::TRACE, "Origin", author = msg.author.display_name());
-        let _enter = span.enter();
-
         let command = Commands::try_from(msg.content.clone());
         match command {
             Ok(command) => {
@@ -45,6 +42,9 @@ impl serenity::prelude::EventHandler for App {
                 } else {
                     false
                 };
+
+                let span = span!(Level::DEBUG, "Executing", author = msg.author.display_name(), is_admin = is_admin);
+                let _enter = span.enter();
                 
                 self.command_center.execute(command, is_admin, ctx, msg).await;
             },
@@ -65,7 +65,7 @@ impl serenity::prelude::EventHandler for App {
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();    
-    
+
     let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
     fmt()
         .with_env_filter(EnvFilter::new(format!("com_man={log_level}")))

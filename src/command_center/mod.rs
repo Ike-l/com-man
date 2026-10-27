@@ -37,6 +37,16 @@ impl CommandCenter {
                     vec![]
                 };
 
+                let span = span!(
+                    Level::TRACE, 
+                    "Echoing", 
+                    accept_threshold = accept_threshold, 
+                    deny_threshold = deny_threshold, 
+                    duration = duration.as_secs(), 
+                    blocklist =? blocklist
+                );
+                let _enter = span.enter();
+
                 Self::vote(
                     ctx, 
                     msg, 
@@ -136,8 +146,14 @@ impl CommandCenter {
                 {
                     current_accepts = users
                         .iter()
-                        .filter(|u| !blocklist.contains(&u.id))
-                        .count() as u64;
+                        .filter(|user_id| {
+                            let blocking = blocklist.contains(&user_id.id);
+                            if blocking {
+                                event!(Level::TRACE, display_name = user_id.display_name(), "blocking accept");
+                            }
+
+                            !blocking
+                        }).count() as u64;
                 }
             }
 
@@ -149,12 +165,19 @@ impl CommandCenter {
                 {
                     current_denies = users
                         .iter()
-                        .filter(|u| !blocklist.contains(&u.id))
-                        .count() as u64;
+                        .filter(|user_id| {
+                            let blocking = blocklist.contains(&user_id.id);
+                            if blocking {
+                                event!(Level::TRACE, display_name = user_id.display_name(), "blocking deny");
+                            }
+
+                            !blocking
+                        }).count() as u64;
                 }
             }
 
             if current_denies >= deny_threshold {
+                event!(Level::TRACE, current_denies = current_denies, current_accepts = current_accepts, "Breaking vote");
                 break;
             }
         }
@@ -201,38 +224,41 @@ impl CommandCenter {
             SlashCommand::DM((user_id, reason)) => {
                 let err = user_id.dm(&ctx.http, serenity::all::CreateMessage::new().content(reason)).await;
                 if let Err(err) = err {
-                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to DM with error: {err:?}")).await;
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to `DM` with error: {err:?}")).await;
                 }
             },
             SlashCommand::Kick(user_id) => {
                 let err = guild_id.kick(&ctx.http, user_id).await;
                 if let Err(err) = err {
-                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Kick with error: {err:?}")).await;
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to `Kick` with error: {err:?}")).await;
                 }
             },
             SlashCommand::Ban(user_id) => {
                 let err = guild_id.ban(&ctx.http, user_id, 0).await;
                 if let Err(err) = err {
-                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Ban with error: {err:?}")).await;
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to `Ban` with error: {err:?}")).await;
                 }
             },
             SlashCommand::BanWithReason((user_id, reason)) => {
                 let err = guild_id.ban_with_reason(&ctx.http, user_id, 0, reason).await;
                 if let Err(err) = err {
-                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Ban with error: {err:?}")).await;
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to `Ban` with error: {err:?}")).await;
                 }
             }
             SlashCommand::Disconnect(user_id) => {
                 let err = guild_id.disconnect_member(&ctx.http, user_id).await;
                 if let Err(err) = err {
-                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Disconnect with error: {err:?}")).await;
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to `Disconnect` with error: {err:?}")).await;
                 }
             },
             SlashCommand::Timeout((user_id, timestamp)) => {
-                let Ok(mut member) = guild_id.member(&ctx.http, user_id).await else { return };
+                let Ok(mut member) = guild_id.member(&ctx.http, user_id).await else { 
+                    Self::echo(&msg.channel_id, &ctx.http, "Failed to get `Member` with `UserId`").await;
+                    return;
+                };
                 let err = member.disable_communication_until_datetime(&ctx.http, timestamp).await;
                 if let Err(err) = err {
-                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to Timeout with error: {err:?}")).await;
+                    Self::echo(&msg.channel_id, &ctx.http, format!("Failed to `Timeout` with error: {err:?}")).await;
                 }
             }
         }
@@ -244,10 +270,10 @@ impl CommandCenter {
 
     pub async fn echo(channel_id: &serenity::all::ChannelId, cache_http: impl serenity::http::CacheHttp, message: impl Into<String>) -> Option<serenity::all::Message> {
         let message = message.into();
-        let span = span!(Level::TRACE, "Echo", message = message.clone());
+        let span = span!(Level::DEBUG, "Echo", message = message.clone());
         let _enter = span.enter();
 
-        event!(Level::TRACE, "Echoing");
+        event!(Level::DEBUG, "Echoing");
 
         let result = channel_id.say(&cache_http, message.clone()).await;
         
