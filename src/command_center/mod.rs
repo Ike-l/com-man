@@ -27,7 +27,7 @@ impl CommandCenter {
                 let deny_reaction_emoji = self.deny_reaction_emoji.clone();
                 let blocklist = if let Some(guild_id) = &msg.guild_id {
                     let mut blocklist = Vec::new();
-                    for word in message.split_ascii_whitespace() {
+                    for word in message.split_whitespace() {
                         if let Some(user_id) = get_user_id(guild_id, word, &ctx).await {
                             blocklist.push(user_id);
                         }

@@ -2,6 +2,7 @@ use std::{fmt::Display, time::Duration};
 
 use thiserror::Error;
 
+#[derive(Debug)]
 pub enum Commands {
     Ping,
     List,
@@ -60,7 +61,7 @@ impl TryFrom<String> for Commands {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let command = value.strip_prefix(Self::PREFIX).ok_or(CommandError::NoPrefix)?;
 
-        let words = command.split(' ').collect::<Vec<_>>();
+        let words = command.split_whitespace().collect::<Vec<_>>();
         match words.as_slice() {
             ["list"] => Ok(Self::List),
             ["ping"] => Ok(Self::Ping),

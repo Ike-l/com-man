@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use crate::get_user_id;
 
+#[derive(Debug)]
 pub enum SlashCommand {
     DM((serenity::all::UserId, String)),
     Kick(serenity::all::UserId),
@@ -46,7 +47,7 @@ impl SlashCommand {
     ) -> Result<Self, SlashCommandError> {    
         let command = value.strip_prefix(Self::PREFIX).ok_or(SlashCommandError::NoPrefix)?;
     
-        let words = command.split_ascii_whitespace().collect::<Vec<_>>();
+        let words = command.split_whitespace().collect::<Vec<_>>();
         match words.as_slice() {
             ["dm", username, message @ ..] => {
                 let message = message.join(" ");
