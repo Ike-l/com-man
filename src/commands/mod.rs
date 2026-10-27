@@ -80,16 +80,21 @@ impl TryFrom<String> for Commands {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Once;
     use std::time::Duration;
     use tracing_subscriber::{fmt, EnvFilter};
 
+    static INIT: Once = Once::new();
+
     fn init_test_logging() {
-        let _ = fmt()
-            .with_env_filter(EnvFilter::new(
-                std::env::var("TEST_LOG_LEVEL").unwrap_or_else(|_| "trace".to_string())
-            ))
-            .with_test_writer()
-            .try_init();
+        INIT.call_once(|| {
+            let _ = fmt()
+                .with_env_filter(EnvFilter::new(
+                    std::env::var("TEST_LOG_LEVEL").unwrap_or_else(|_| "trace".to_string())
+                ))
+                .with_test_writer()
+                .try_init();
+        });
     }
 
     #[test]
