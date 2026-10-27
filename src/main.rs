@@ -64,14 +64,16 @@ impl serenity::prelude::EventHandler for App {
 
 #[tokio::main]
 async fn main() {
+    dotenv::dotenv().ok();    
+    
+    let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
     fmt()
-        .with_env_filter(EnvFilter::new("com_man=trace"))
+        .with_env_filter(EnvFilter::new(format!("com_man={log_level}")))
         .init();
 
     let span = span!(Level::INFO, "App", user_name = tracing::field::Empty);
     let _enter = span.enter();
 
-    dotenv::dotenv().ok();    
     let token = std::env::var("DISCORD_TOKEN").expect(".env file in crate directory with 'DISCORD_TOKEN=_'");
 
     let intents = serenity::prelude::GatewayIntents::all();
