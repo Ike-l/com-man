@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::get_user_id;
+use crate::get_user_id::get_user_id;
 
 #[derive(Debug)]
 pub enum SlashCommand {

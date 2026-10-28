@@ -1,6 +1,6 @@
 use std::{sync::atomic::{AtomicU64, Ordering}, time::Duration};
 
-use crate::{commands::Commands, get_user_id, slash_commands::SlashCommand};
+use crate::{commands::Commands, get_memory_usage::get_memory_usage, get_user_id::get_user_id, slash_commands::SlashCommand};
 use serenity::futures::StreamExt;
 use tracing::{Level, event, span};
 
@@ -182,6 +182,7 @@ impl CommandCenter {
             }
         }
 
+        event!(Level::DEBUG, memory_usage = get_memory_usage(), "Memory Usage (MB)");
         if current_denies >= deny_threshold {
             Self::echo(&msg.channel_id, &ctx.http, format!("Vote denied for: `{message}`")).await;
             return;
