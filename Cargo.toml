@@ -5,9 +5,11 @@ edition = "2024"
 
 [dependencies]
 serenity = { version = "0.12.5", features = [ "client", "gateway", "model", "rustls_backend", "framework", "standard_framework", "collector" ] }
-tokio = { version = "1.54.1", features = [ "macros", "rt-multi-thread" ] }
+tokio = { version = "1.54.1", features = [ "macros", "rt-multi-thread", "signal" ] }
 dotenv = "0.15.0"
 chrono = "0.4"
 tracing-subscriber = { version = "0.3.23", features = [ "env-filter" ] }
 thiserror = "2.0.21"
 tracing = "0.1.44"
+sysinfo = "0.39.6"
+dhat = "0.3.3"
