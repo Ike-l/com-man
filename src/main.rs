@@ -63,12 +63,15 @@ impl serenity::prelude::EventHandler for App {
     }
 }
 
+#[cfg(debug_assertions)]
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
 #[tokio::main]
 async fn main() {
+    #[cfg(debug_assertions)]
     let _profiler = dhat::Profiler::new_heap();
+    
     dotenv::dotenv().ok();    
 
     let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
