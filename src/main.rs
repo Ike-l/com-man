@@ -45,11 +45,9 @@ impl serenity::prelude::EventHandler for App {
                     false
                 };
 
-                let span = span!(Level::DEBUG, "Executing", author = msg.author.display_name(), is_admin = is_admin);
-                let _enter = span.enter();
-                
+                let author = msg.author.display_name().to_string();
                 self.command_center.execute(command, is_admin, ctx, msg).await;
-                event!(Level::DEBUG, memory_usage = get_memory_usage(), "Memory Usage (MB)");
+                event!(Level::DEBUG, author = author, is_admin = is_admin, memory_usage = get_memory_usage(), "Memory Usage (MB)");
             },
             Err(err) => {
                 CommandCenter::echo(&msg.channel_id, &ctx.http, format!("Error in command: {err}")).await;
